@@ -5,6 +5,7 @@ import { Construct } from "constructs";
 
 export interface HitCounterProps {
   downstream: lambda.IFunction;
+  readCapacity?: number;
 }
 
 export class HitCounter extends Construct {
@@ -13,11 +14,21 @@ export class HitCounter extends Construct {
   public readonly table: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: HitCounterProps) {
+    if (
+      props.readCapacity !== undefined &&
+      (props.readCapacity < 5 || props.readCapacity > 20)
+    ) {
+      throw new Error(
+        "read capacity for Dynamo must be greater than 5 and less than 20"
+      );
+    }
     super(scope, id);
 
     this.table = new dynamodb.Table(this, "Hits", {
       partitionKey: { name: "path", type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      readCapacity: props.readCapacity ?? 5,
     });
 
     this.handler = new lambda.Function(this, "HitCounterHandler", {
